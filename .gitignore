@@ -1,0 +1,37 @@
+# Environment variables
+.env
+
+# Database data
+volumes/db/data/
+
+# Storage data
+volumes/storage/*
+!volumes/storage/.gitkeep
+
+# Logs
+volumes/logs/*
+!volumes/logs/.gitkeep
+*.log
+
+# Generated files
+.DS_Store
+node_modules/
+dist/
+build/
+
+# Docker related
+docker-compose.override.yml
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# System files
+Thumbs.db
