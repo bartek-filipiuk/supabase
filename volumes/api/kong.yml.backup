@@ -4,23 +4,6 @@ _transform: true
 ###
 ### Global plugins
 ###
-# We're using the redirect plugin, but it's not properly configured
-# plugins:
-#   - name: redirect
-#     config:
-#       status_code: 301
-#       https_port_in_redirect: true
-#     enabled: true
-#     protocols:
-#       - http
-#     config:
-#       rules:
-#         - conditions:
-#             - http_host:
-#                 - mybases.pl
-#                 - www.mybases.pl
-#           actions:
-#             request_scheme: https
 
 ###
 ### Consumers / Users
