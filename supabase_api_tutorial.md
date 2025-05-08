@@ -1,348 +1,173 @@
-# Supabase API Tutorial
+# Working with a Supabase PostgREST API (via `cURL`)
 
-This tutorial explains how to interact with your Supabase REST API at `mybases.pl:8443`. It covers basic CRUD operations and more advanced features.
+Supabase uses `PostgREST` to automatically generate a RESTful API for your PostgreSQL database ([supabase.com](http://supabase.com)). This means every table or view in your schema gets its own API endpoint for Create, Read, Update, Delete (CRUD) operations. 
 
-## Prerequisites
-
-- A Supabase instance running at `mybases.pl:8443`
-- Your Supabase API key (found in your `.env` file)
-
-## Authentication
-
-All requests to the Supabase API require authentication headers:
+In this tutorial, we'll assume your API is running at the base URL `https://mybases.pl:8443` (for a self-hosted Supabase instance or a Supabase project). By default, the REST endpoints are under the path `/rest/v1/` ([supabase.com](http://supabase.com)), so a table named `youtube_transcription` would be accessible at:
 
 ```bash
-# Required headers
--H "apikey: YOUR_ANON_KEY"  # Found in .env as ANON_KEY
--H "Authorization: Bearer YOUR_ANON_KEY"  # Same key, with "Bearer " prefix
+https://mybases.pl:8443/rest/v1/youtube_transcription
 ```
 
-## Basic CRUD Operations
+We'll demonstrate how to authenticate using the `anon` API key and perform full CRUD operations on the `youtube_transcription` table using `curl`. We'll also cover how to apply filters, pagination, and sorting to your requests. Finally, we'll clarify whether you can perform schema changes (DDL) through this API.
 
-### 1. Read Data
+## Authentication with API Key
 
-#### Fetch all rows from a table
+All requests to the Supabase REST API must include an API key for authorization. Supabase provides an `anon` key (for public/unprivileged access) and a `service_role` key (for admin access). For our examples, we'll use the `anon` key. Include this key in two headers on each request: an `apikey` header and an `Authorization: Bearer` header ([apidog.com](http://apidog.com)). Typically, both headers carry the same key value (the `anon` JWT), unless you use a user-specific JWT for an authenticated user session. For example, to test the connection (retrieving all rows from `youtube_transcription`), you could run:
 
 ```bash
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?select=*' \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY"
 ```
 
-#### Fetch specific columns
+If the key is valid and your table's Row Level Security (RLS) policies allow access, you should get a `JSON` response (possibly an empty array `[]` if the table is empty). If the key is missing or incorrect, the request will be rejected (`HTTP 401/403`). In the next sections, we'll include the required headers in each `curl` example.
+
+## Creating a Record (INSERT via POST)
+
+To create a new record in a table, you send a `POST` request to the table's endpoint with a `JSON` body. The `JSON` keys should match the column names of the table. You must also set the `Content-Type: application/json` header to indicate you're sending `JSON` data. For example, suppose our `youtube_transcription` table has columns for a YouTube video ID and a transcript text. We can insert a new row like so:
 
 ```bash
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=id,title" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-#### Filter data
-
-```bash
-# Get completed todos
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&completed=eq.true" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-
-# Get todos with specific IDs
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&id=eq.1" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-#### Ordering results
-
-```bash
-# Order by ID in ascending order
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&order=id.asc" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-
-# Order by title in descending order
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&order=title.desc" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-#### Pagination
-
-```bash
-# Limit to 2 results
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&limit=2" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-
-# Limit to 2 results, offset by 2 (get items 3-4)
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&limit=2&offset=2" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-### 2. Create Data
-
-#### Insert a single row
-
-```bash
-curl -X POST "https://mybases.pl:8443/rest/v1/todos" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription' \
+  -X POST \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"title": "New task", "completed": false}'
+  -H "Prefer: return=representation" \
+  -d '{ 
+        "video_id": "abc123", 
+        "text": "Hello world, this is a sample transcription." 
+      }'
 ```
 
-#### Insert multiple rows
+Let's break down this request:
+
+*   We `POST` to the `/youtube_transcription` endpoint.
+*   Headers:
+    *   `apikey` and `Authorization` with our key (as discussed).
+    *   `Content-Type: application/json` to send `JSON`.
+    *   `Prefer: return=representation` to ask the API to return the created record in the response. This header is optional, but without it the API will return a minimal response (usually just a `201 Created` status without the new record). By including it, we get the inserted row back in `JSON` ([apidog.com](http://apidog.com)), which is useful to retrieve auto-generated fields (like an `id` or `timestamp`).
+*   The `-d` payload is a `JSON` object with the new record's data. In this example, we provide a `video_id` and `text` for the transcription. Any columns not provided will use their default values or `null`.
+
+If the insert is successful, you should receive a `201` status. With `Prefer:return=representation`, the response body will contain the newly created row (including, for example, an auto-generated `id`). If there was a violation (e.g., a `NOT NULL` field missing or a unique constraint violation), you'll get an error response describing the issue.
+
+## Reading Records (SELECT via GET)
+
+Reading data is done with `GET` requests to the table endpoint. A basic `GET` request to the table URL will return all rows visible to your role (subject to any RLS policies). You can retrieve specific rows or subsets of columns using query parameters. For example, to fetch all transcriptions (all columns) from the table:
 
 ```bash
-curl -X POST "https://mybases.pl:8443/rest/v1/todos" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?select=*' \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY"
+```
+
+Here we use the `select=*` query parameter to explicitly select all columns. (In `PostgREST`, if you omit `select`, it returns all columns by default, but it's good practice to use `select` especially when joining or limiting fields.) Often, you'll want to retrieve specific records. You can filter results by adding conditions as query parameters. For example, if your table has an `id` column (primary key), you can get a specific transcription by ID:
+
+```bash
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?id=eq.1&select=*' \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY"
+```
+
+This adds `?id=eq.1` to filter where `id = 1`. The response would be an array with the matching record (or an empty array if none match). Supabase (`PostgREST`) returns `JSON` arrays for results, or a single object if you request a single row by using a `LIMIT 1` or using the `Accept: application/vnd.pgrst.object+json` header (not shown here). Typically, you'll get an array of results even if one object matches the filter. Note: Multiple query conditions can be added (they are `ANDed` by default). We'll cover more filtering options (like ranges, search patterns, etc.) in the section on filtering below.
+
+## Updating a Record (UPDATE via PATCH)
+
+To update existing records, you can use `PATCH` (for partial updates) or `PUT` (to replace entire records). In most cases, `PATCH` is preferred to update only specified fields. The request is sent to the table endpoint with query params to filter the target row(s), and a `JSON` body of the fields to change. For example, to update the transcription text of the record with `id = 1`:
+
+```bash
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?id=eq.1' \
+  -X PATCH \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" \
-  -d '[
-    {"title": "Task 1", "completed": false},
-    {"title": "Task 2", "completed": false}
-  ]'
+  -H "Prefer: return=representation" \
+  -d '{ "text": "Hello world, this transcription has been updated." }'
 ```
 
-### 3. Update Data
+In this request:
 
-#### Update a single row
+*   We target `/youtube_transcription?id=eq.1` to apply the update only to the row with `id 1`. (If you omit a filter, all rows would be updated – so always include a filter such as the primary key or some condition to avoid mass updates.)
+*   The method is `PATCH` and we provide a `JSON` body with only the fields we want to change (here, just the `text` field).
+*   Headers:
+    *   `Content-Type: application/json` (for the `JSON` body).
+    *   We again use `Prefer: return=representation` so that the response will return the updated record (useful to verify the changes or get computed fields) ([apidog.com](http://apidog.com)). Without this, a successful update returns a `204 No Content` status with no body.
+
+If the request is successful, you'll get either a `200 OK` with the updated record (if using `return=representation`) or `204 No Content`. If no record matched the filter, you'll get a `204 No Content` with an empty response (meaning nothing was updated). If the filter matched multiple records, all those will be updated (the response would include all updated records if requested). You can limit the number of rows affected by adding a `limit` and `order` clause (covered below in Filtering/Pagination) to, for example, update only the first matching row.
+
+## Deleting a Record (DELETE)
+
+To remove records, you send a `DELETE` request to the table endpoint, again with a filter to specify which record(s) to delete. Typically you filter by the primary key or another unique identifier. For example, to delete the transcription with `id = 1`:
 
 ```bash
-curl -X PATCH "https://mybases.pl:8443/rest/v1/todos?id=eq.1" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?id=eq.1' \
+  -X DELETE \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY"
 ```
 
-#### Update multiple rows
+We omit `Content-Type` since there's no request body for `DELETE`. This will delete the row where `id = 1`, if it exists and if your role has permission to delete it. On success, you'll typically get a `204 No Content` response (and the record will be gone). If you want to get confirmation of what was deleted, you can include `Prefer: return=representation` on the `DELETE` request as well. In that case, if a row is deleted, the API will return a `200 OK` with the deleted row's data in the response ([apidog.com](http://apidog.com)). (If no rows match the filter, you'd get a `204` and an empty response.) **Warning:** As with updates, make sure to use a filter. If you accidentally call `DELETE` on the table without a condition, all rows could be deleted (if your auth role permits it). `PostgREST` does allow specifying `?id=eq.*` to match all rows ([devhunt.org](http://devhunt.org)), but use this with extreme caution (or not at all).
+
+## Filtering, Pagination, and Sorting Queries
+
+One of the strengths of `PostgREST` (and Supabase's auto-API) is the ability to refine your requests with query parameters for filtering, selecting columns, ordering, and pagination. Here are some of the key query options available:
+
+*   **Selecting specific columns:** Use `select` query parameter to control which columns (or nested relationships) are returned. For example: `?select=id,video_id,text` will fetch only those columns instead of all. (Use `select=*` for all columns) ([apidog.com](http://apidog.com)).
+*   **Filtering results:** Add conditions as query params in the form `column=operator.value`. For example, `?video_id=eq.abc123` returns rows where `video_id = 'abc123'`. You can use a variety of operators besides equality:
+    *   `eq` (equal to), `neq` (not equal),
+    *   `gt` / `gte` (greater than / greater or equal),
+    *   `lt` / `lte` (less than / less or equal),
+    *   `like` (pattern match, case-sensitive), `ilike` (case-insensitive like),
+    *   `in` (one of a list of values, e.g. `?status=in.(active,pending)`),
+    *   `is` (check for exact `IS` conditions like `NULL`, e.g. `?text=is.null` to get rows where `text` is `NULL`),
+    *   and more ([apidog.com](http://apidog.com)).
+*   **Combining multiple filters:** You can include multiple conditions (e.g. `?video_id=eq.abc123&language=eq.en`). By default, multiple filters are combined with logical `AND`. For `OR` logic, you can use the special `or` query parameter. For example: `?or=(language.eq.en,language.eq.fr)` would fetch rows where language is either 'en' or 'fr'. You can even group conditions with `and/or` and `not` for more complex logic ([postgrest.org](http://postgrest.org)). If no filter is provided at all, the request will return all rows (up to any limits).
+*   **Ordering (sorting):** Use the `order` parameter. For example: `?order=video_id.asc` or `?order=created_at.desc` to sort by a column ascending or descending ([apidog.com](http://apidog.com)). You can sort by multiple columns by comma-separating them (e.g. `?order=category.asc,created_at.desc`). By default, `null` values sort as if largest; you can append `.nullslast` or `.nullsfirst` to specify where `nulls` should appear ([apidog.com](http://apidog.com)) ([stackoverflow.com](http://stackoverflow.com)). For example: `?order=created_at.desc.nullslast`.
+*   **Pagination (limit/offset):** By default, a `GET` could return all matching rows, but you can limit the result set. Use `limit` and `offset` parameters for offset-based pagination. For example: `?limit=10&offset=0` will return the first 10 rows; `?limit=10&offset=10` would get the next 10 ([apidog.com](http://apidog.com)). If you only use `limit` without `offset`, it's like `offset=0`. There is also support for ranged requests via HTTP headers (using `Range` or `Range-Unit` headers) as an alternative to `limit/offset` ([postgrest.org](http://postgrest.org)) ([postgrest.org](http://postgrest.org)), but using `limit` and `offset` in the URL is simpler for most cases.
+*   **Counting total rows:** When using pagination, you often want the total number of rows available. The API can return this in a `Content-Range` header if requested. To get it, include the header `Prefer: count=exact` (or `count=planned/estimated` for performance) in your `GET` request ([postgrest.org](http://postgrest.org)). The response will then have a header `Content-Range: {start}-{end}/{total}`, where `{total}` is the total matching rows. This helps in implementing page indicators (e.g., "showing 11–20 of 100 items").
+
+All the above query options can be combined in a single request. For instance, suppose we want to find transcripts that contain the word "hello" in their `text`, sorted by newest first, returning only 5 at a time (for pagination). Assuming our table has an `id` that increases with newer entries or a `created_at` timestamp, we could do:
 
 ```bash
-curl -X PATCH "https://mybases.pl:8443/rest/v1/todos?completed=eq.false" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
+curl 'https://mybases.pl:8443/rest/v1/youtube_transcription?text=ilike.%25hello%25&order=id.desc&limit=5&offset=0' \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
+  -H "Prefer: count=exact"
 ```
 
-### 4. Delete Data
+Let's decode that URL:
 
-#### Delete a single row
+*   `text=ilike.%25hello%25` filters rows where the `text` column `ilike '%hello%'` (the `%25` is URL-encoded `%` sign).
+*   `order=id.desc` sorts results by `id` in descending order (so presumably newest first).
+*   `limit=5` restricts to 5 records.
+*   `offset=0` starts at the first page (0 offset).
+*   We also sent `Prefer: count=exact` so the response headers include the total count of matching rows (which doesn't affect the `JSON` body, but helps our client know how many results exist in total). This flexibility allows you to query your data in many ways without writing any custom endpoints – you leverage the database query capabilities directly via the API.
 
-```bash
-curl -X DELETE "https://mybases.pl:8443/rest/v1/todos?id=eq.1" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
+## Calling Stored Procedures (RPC) (Optional)
 
-#### Delete multiple rows
+*(Optional section, if relevant to the user)* Apart from tables, Supabase's REST API also exposes `PostgreSQL` functions (a.k.a. stored procedures) that are marked as "immutable" or "stable" (or if you configure otherwise). These appear under a special `RPC` endpoint. For example, a Postgres function `hello_world()` would be callable at `POST /rest/v1/rpc/hello_world`. You would include any function arguments as a `JSON` object in the request body. Stored procedures can be used to perform complex operations or logic on the server side. However, note that calling a function via the REST API still requires proper authentication and adheres to any security definitions you set (e.g., arguments must pass RLS checks if the function queries tables). For detailed usage of `RPC` endpoints, refer to Supabase/PostgREST documentation. (The question didn't explicitly ask for `RPC`, so this section can be omitted if focusing strictly on table `CRUD`. It's mentioned here for completeness.)
 
-```bash
-curl -X DELETE "https://mybases.pl:8443/rest/v1/todos?completed=eq.true" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
+## Limitations: Schema Changes (DDL) via REST API
 
-## Advanced Queries
-
-### 1. Full-Text Search
-
-If your table has text columns and PostgreSQL text search enabled:
-
-```bash
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&title=fts.groceries" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-### 2. Count Rows
-
-```bash
-# Count all rows
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=count" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-
-# Count filtered rows
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=count&completed=eq.true" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-### 3. Range Operations
-
-```bash
-# Get todos with IDs between 1 and 3
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&id=gte.1&id=lte.3" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-### 4. Pattern Matching (LIKE)
-
-```bash
-# Find todos containing "Super" in the title
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&title=like.*Super*" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-## Working with Related Tables
-
-If you have related tables with foreign keys:
-
-### 1. Fetch related data
-
-```bash
-# Assuming a users table with user_id as foreign key in todos
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*,users(*)" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-### 2. Filter by related data
-
-```bash
-# Get todos for users with a specific email
-curl -X GET "https://mybases.pl:8443/rest/v1/todos?select=*&users.email=eq.user@example.com" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-```
-
-## Using Custom Procedures/Functions
-
-If you have SQL functions in your database:
-
-```bash
-# Call a function named get_completed_todos
-curl -X POST "https://mybases.pl:8443/rest/v1/rpc/get_completed_todos" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY"
-
-# Call a function with parameters
-curl -X POST "https://mybases.pl:8443/rest/v1/rpc/get_todos_by_status" \
-  -H "apikey: YOUR_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"status": true}'
-```
-
-## Working with Supabase in Programming Languages
-
-### JavaScript (Fetch API)
-
-```javascript
-const fetchTodos = async () => {
-  const response = await fetch('https://mybases.pl:8443/rest/v1/todos?select=*', {
-    headers: {
-      'apikey': 'YOUR_ANON_KEY',
-      'Authorization': 'Bearer YOUR_ANON_KEY'
-    }
-  });
-  
-  const data = await response.json();
-  console.log(data);
-};
-
-fetchTodos();
-```
-
-### Python (Requests)
-
-```python
-import requests
-
-headers = {
-    'apikey': 'YOUR_ANON_KEY',
-    'Authorization': 'Bearer YOUR_ANON_KEY'
-}
-
-response = requests.get('https://mybases.pl:8443/rest/v1/todos?select=*', headers=headers)
-data = response.json()
-print(data)
-```
-
-### PHP (cURL)
-
-```php
-<?php
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, 'https://mybases.pl:8443/rest/v1/todos?select=*');
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'apikey: YOUR_ANON_KEY',
-    'Authorization: Bearer YOUR_ANON_KEY'
-]);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-$data = json_decode($response, true);
-print_r($data);
-?>
-```
-
-## Using the Supabase JavaScript Client
-
-If you prefer using the Supabase client library instead of raw HTTP requests:
-
-```javascript
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = 'https://mybases.pl:8443';
-const supabaseKey = 'YOUR_ANON_KEY';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Fetch all todos
-const getTodos = async () => {
-  const { data, error } = await supabase
-    .from('todos')
-    .select('*');
-  
-  if (error) console.error('Error fetching todos:', error);
-  else console.log('Todos:', data);
-};
-
-// Insert a new todo
-const addTodo = async (title) => {
-  const { data, error } = await supabase
-    .from('todos')
-    .insert([{ title, completed: false }]);
-  
-  if (error) console.error('Error adding todo:', error);
-  else console.log('Added todo:', data);
-};
-
-// Update a todo
-const updateTodo = async (id, completed) => {
-  const { data, error } = await supabase
-    .from('todos')
-    .update({ completed })
-    .eq('id', id);
-  
-  if (error) console.error('Error updating todo:', error);
-  else console.log('Updated todo:', data);
-};
-
-// Delete a todo
-const deleteTodo = async (id) => {
-  const { error } = await supabase
-    .from('todos')
-    .delete()
-    .eq('id', id);
-  
-  if (error) console.error('Error deleting todo:', error);
-  else console.log('Todo deleted successfully');
-};
-```
+One important aspect to understand is that the auto-generated REST API is designed for data operations (`CRUD` on tables, calling functions), not for managing the database schema. You cannot create or alter tables, columns, or roles through the Supabase REST API. In other words, `DDL` (Data Definition Language) commands like `CREATE TABLE` are not supported via the `PostgREST` endpoints by default. The Supabase team recommends performing such tasks via `SQL` scripts or the Supabase Dashboard UI ([supabase.com](http://supabase.com)). For example, you can use the `SQL editor` in the Supabase dashboard or connect to the database directly (e.g., with `psql` or a migration tool) to execute `DDL` commands. In fact, attempting to create a table through the REST API will simply not work – no endpoint exists for it. Some advanced users have created Postgres functions to run `DDL` commands and then called those via the `RPC` mechanism, but this is generally discouraged ([github.com](http://github.com)). Opening up `DDL` via an API can be dangerous and is usually unnecessary in a well-planned schema. If you absolutely must use an API for `DDL`, you'd need to create a custom endpoint or a secure function (with a lot of caution and proper privileges) on your own. For almost all cases, stick to managing the schema through migrations or the provided interface, and use the REST API for data operations on that schema.
 
 ## Conclusion
 
-This tutorial covered the basics of interacting with the Supabase REST API. Remember to always:
+In this tutorial, we've seen how to interact with a Supabase-hosted `PostgREST` API using `cURL` for a sample table `youtube_transcription`. We covered authenticating with the `anon` key, and demonstrated `CRUD` operations: inserting new rows (`POST`), reading data (`GET` with filters), updating existing records (`PATCH`), and deleting records (`DELETE`). We also explored how to refine queries with filters, sorting, and pagination parameters to retrieve exactly the data you need. With this knowledge, you can build front-ends or scripts to manage your Supabase data directly over `HTTP`. The Supabase auto-generated API provides a quick and flexible way to work with your database, all while enforcing the security rules you've set at the database level. For further details, you can refer to the Supabase documentation and the `PostgREST` documentation for advanced usage. Happy coding!
 
-1. Include the proper authentication headers with each request
-2. Format your request data according to the API's requirements
-3. Handle errors appropriately in your application
+### Sources:
 
-For more detailed information, refer to the [official Supabase documentation](https://supabase.com/docs/reference/javascript/introduction).
+*   Supabase Docs – REST API Overview
+    *   [supabase.com](http://supabase.com)
+    *   [supabase.com](http://supabase.com)
+*   Supabase API Guide (PostgREST usage and examples)
+    *   [apidog.com](http://apidog.com)
+    *   [apidog.com](http://apidog.com)
+    *   [apidog.com](http://apidog.com)
+    *   [apidog.com](http://apidog.com)
+*   PostgREST Official Documentation – Query Filters and Pagination
+    *   [postgrest.org](http://postgrest.org)
+    *   [postgrest.org](http://postgrest.org)
+    *   [postgrest.org](http://postgrest.org)
+*   Stack Overflow / Supabase Discussions – Additional insights on usage and limitations
+    *   [stackoverflow.com](http://stackoverflow.com)
+    *   [github.com](http://github.com)
