@@ -156,18 +156,10 @@ In this tutorial, we've seen how to interact with a Supabase-hosted `PostgREST` 
 
 ### Sources:
 
-*   Supabase Docs – REST API Overview
-    *   [supabase.com](http://supabase.com)
-    *   [supabase.com](http://supabase.com)
-*   Supabase API Guide (PostgREST usage and examples)
-    *   [apidog.com](http://apidog.com)
-    *   [apidog.com](http://apidog.com)
-    *   [apidog.com](http://apidog.com)
-    *   [apidog.com](http://apidog.com)
-*   PostgREST Official Documentation – Query Filters and Pagination
-    *   [postgrest.org](http://postgrest.org)
-    *   [postgrest.org](http://postgrest.org)
-    *   [postgrest.org](http://postgrest.org)
-*   Stack Overflow / Supabase Discussions – Additional insights on usage and limitations
-    *   [stackoverflow.com](http://stackoverflow.com)
-    *   [github.com](http://github.com)
+- [PostgREST Documentation](https://postgrest.org)
+- [Supabase REST API Docs](https://supabase.com/docs/guides/api)
+- [Supabase PostgREST Query Filters](https://supabase.com/docs/guides/api/rest/query-filters)
+- [Supabase Auth and API Keys](https://supabase.com/docs/guides/auth#api-keys)
+- [Supabase RPC (Remote Procedure Call)](https://supabase.com/docs/guides/api/rest/rpc)
+- [Supabase Count and Pagination](https://supabase.com/docs/guides/api/rest/pagination)
+- [Supabase HTTP Headers Reference](https://supabase.com/docs/guides/api/rest/http)
