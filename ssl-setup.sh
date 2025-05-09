@@ -274,7 +274,7 @@ cat > kong-ssl-config.yml << EOF
       DASHBOARD_USERNAME: \${DASHBOARD_USERNAME}
       DASHBOARD_PASSWORD: \${DASHBOARD_PASSWORD}
     entrypoint: >
-      bash -c 'cp /home/kong/temp.yml /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start'
+      bash -c 'eval "echo \"$$(cat /home/kong/temp.yml)\"" > /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start'
 EOF
 success "Kong SSL configuration created"
 
