@@ -531,8 +531,8 @@ cp -r /etc/letsencrypt/live /etc/letsencrypt/archive $BACKUP_DIR/
 
 # Backup Kong configuration
 echo "Backing up Kong configuration..."
-cp /home/bart/supabase/docker-compose.yml $BACKUP_DIR/
-cp /home/bart/supabase/volumes/api/kong.yml $BACKUP_DIR/
+cp $(pwd)/docker-compose.yml $BACKUP_DIR/
+cp $(pwd)/volumes/api/kong.yml $BACKUP_DIR/
 
 echo "Backup completed: $BACKUP_DIR"
 EOF
