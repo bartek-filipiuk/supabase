@@ -408,9 +408,45 @@ success "Automatic certificate renewal set up"
 
 # Update docker-compose.yml with new Kong configuration
 step "Updating docker-compose.yml file..."
-sed -i -e '/^  kong:/,/entrypoint:/c\' docker-compose.yml || error "sed command failed"
-cat kong-ssl-config.yml >> docker-compose.yml || error "Failed to append Kong SSL config"
-rm kong-ssl-config.yml || error "Failed to remove temporary file"
+# Create a temporary file for the new configuration
+TEMP_FILE=$(mktemp)
+# Copy docker-compose.yml content to the temporary file, replacing the kong section
+awk '{
+  if (found_kong && /^  [a-zA-Z]/) {
+    # If a new service section is found after kong, insert the new kong configuration
+    if (!inserted_kong) {
+      system("cat kong-ssl-config.yml");
+      inserted_kong = 1;
+    }
+    found_kong = 0;
+  }
+  
+  if (/^  kong:/) {
+    # Found kong section, set the flag
+    found_kong = 1;
+    next;
+  }
+  
+  if (found_kong && /^    [a-zA-Z]/) {
+    # Skip lines in the kong section
+    next;
+  }
+  
+  # Print lines that are not part of the kong section
+  if (!found_kong) {
+    print;
+  }
+}
+END {
+  # If kong was the last section, add the new configuration at the end
+  if (found_kong && !inserted_kong) {
+    system("cat kong-ssl-config.yml");
+  }
+}' docker-compose.yml > "$TEMP_FILE"
+
+# Replace the original file with the modified one
+mv "$TEMP_FILE" docker-compose.yml || error "Failed to update docker-compose.yml"
+rm -f kong-ssl-config.yml || error "Failed to remove temporary file"
 success "docker-compose.yml updated with SSL configuration"
 
 # Start Kong
