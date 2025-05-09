@@ -76,7 +76,7 @@ services:
       KONG_SSL_CERT: /etc/letsencrypt/shared/fullchain.pem
       KONG_SSL_CERT_KEY: /etc/letsencrypt/shared/privkey.pem
       KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
-      KONG_SERVER_NAME: "mybases.pl"
+      KONG_SERVER_NAME: "deepresearch.pl"
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
@@ -349,6 +349,13 @@ services:
     restart: unless-stopped
     ports:
       - 4000:4000
+    # Memory limits to prevent OOM issues
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     # Uncomment to use Big Query backend for analytics
     # volumes:
     #   - type: bind
@@ -381,7 +388,8 @@ services:
       LOGFLARE_SINGLE_TENANT: true
       LOGFLARE_SUPABASE_MODE: true
       LOGFLARE_MIN_CLUSTER_SIZE: 1
-
+      # Add environment variable to limit BEAM VM memory
+      ERL_MAX_PORTS: 1024
       # Comment variables to use Big Query backend for analytics
       POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/_supabase
       POSTGRES_BACKEND_SCHEMA: _analytics
