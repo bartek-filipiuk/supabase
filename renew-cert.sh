@@ -1,4 +1,4 @@
-#\!/bin/bash
+#!/bin/bash
 
 # Set up logging
 LOGFILE="/var/log/letsencrypt-renew.log"
@@ -8,8 +8,7 @@ echo "$(date): Starting certificate renewal..."
 
 # Stop Kong to free port 80
 echo "$(date): Stopping Kong container..."
-cd /home/bart/supabase
-docker compose stop kong
+docker stop supabase-kong
 if [ $? -ne 0 ]; then
   echo "$(date): Failed to stop Kong container."
   exit 1
@@ -23,16 +22,14 @@ CERTBOT_EXIT=$?
 # Copy renewed certificates to the shared directory
 if [ $CERTBOT_EXIT -eq 0 ]; then
   echo "$(date): Copying certificates to shared directory..."
-  cp -L /etc/letsencrypt/live/mybases.pl/fullchain.pem /etc/letsencrypt/shared/
-  cp -L /etc/letsencrypt/live/mybases.pl/privkey.pem /etc/letsencrypt/shared/
-  chmod 644 /etc/letsencrypt/shared/fullchain.pem
-  chmod 644 /etc/letsencrypt/shared/privkey.pem
+  DOMAIN=$(ls -1 /etc/letsencrypt/live/ | grep -v README | head -n 1)
+  cp -L /etc/letsencrypt/live/$DOMAIN/fullchain.pem /etc/letsencrypt/shared/
+  cp -L /etc/letsencrypt/live/$DOMAIN/privkey.pem /etc/letsencrypt/shared/
 fi
 
 # Start Kong back up
 echo "$(date): Starting Kong container..."
-cd /home/bart/supabase
-docker compose start kong
+docker start supabase-kong
 if [ $? -ne 0 ]; then
   echo "$(date): Failed to start Kong container."
   exit 1

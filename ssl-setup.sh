@@ -262,7 +262,7 @@ cat > kong-ssl-config.yml << EOF
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
       KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,redirect
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
       KONG_SSL_CERT: /etc/letsencrypt/shared/fullchain.pem
@@ -273,7 +273,8 @@ cat > kong-ssl-config.yml << EOF
       SUPABASE_SERVICE_KEY: \${SERVICE_ROLE_KEY}
       DASHBOARD_USERNAME: \${DASHBOARD_USERNAME}
       DASHBOARD_PASSWORD: \${DASHBOARD_PASSWORD}
-    entrypoint: bash -c 'eval "echo \\"\\$\\$(cat ~/temp.yml)\\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+    entrypoint: >
+      bash -c 'cp /home/kong/temp.yml /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start'
 EOF
 success "Kong SSL configuration created"
 
@@ -281,37 +282,40 @@ success "Kong SSL configuration created"
 step "Updating Kong configuration for HTTP to HTTPS redirect..."
 cp ./volumes/api/kong.yml ./volumes/api/kong.yml.bak || error "Failed to backup kong.yml"
 
-# Check if we need to add redirection
-if ! grep -q "plugins:" ./volumes/api/kong.yml; then
-  # Add the redirect plugin section to kong.yml
+# Note: We're commenting out the redirect plugin since it's not installed by default
+# If you need HTTP to HTTPS redirect, you'll need to install the plugin first
+
+# Add a comment to kong.yml about HTTP to HTTPS redirection
+if ! grep -q "# HTTP to HTTPS redirection" ./volumes/api/kong.yml; then
   cat >> ./volumes/api/kong.yml << EOF
 
-# Global plugins
-plugins:
-  - name: redirect
-    config:
-      status_code: 301
-      https_port_in_redirect: true
-    enabled: true
-    protocols:
-      - http
-    config:
-      rules:
-        - conditions:
-            - http_host:
-                - $DOMAIN
+# HTTP to HTTPS redirection
+# Note: To enable HTTP to HTTPS redirection, uncomment the following and install the redirect plugin:
+# plugins:
+#   - name: redirect
+#     config:
+#       status_code: 301
+#       https_port_in_redirect: true
+#     enabled: true
+#     protocols:
+#       - http
+#     config:
+#       rules:
+#         - conditions:
+#             - http_host:
+#                 - $DOMAIN
 EOF
 
   if [[ "$INCLUDE_WWW" == "y" || "$INCLUDE_WWW" == "Y" ]]; then
-    echo "                - www.$DOMAIN" >> ./volumes/api/kong.yml
+    echo "#                 - www.$DOMAIN" >> ./volumes/api/kong.yml
   fi
 
   cat >> ./volumes/api/kong.yml << EOF
-          actions:
-            request_scheme: https
+#           actions:
+#             request_scheme: https
 EOF
 fi
-success "Kong configuration updated with HTTP to HTTPS redirect"
+success "Added HTTP to HTTPS redirect information to Kong configuration (commented out)"
 
 # Create certificate renewal script
 step "Creating certificate renewal script..."

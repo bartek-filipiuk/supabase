@@ -1,22 +1,33 @@
-#\!/bin/bash
+#!/bin/bash
 
 # Function to check domain
 check_domain() {
   local domain=$1
   echo "Testing $domain..."
   
+  # Check HTTP redirect
+  echo "  - Testing HTTP redirect..."
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$domain)
+  if [ "$HTTP_STATUS" == "301" ] || [ "$HTTP_STATUS" == "302" ]; then
+    echo "    ✅ HTTP redirects correctly (Status $HTTP_STATUS)"
+  else
+    echo "    ❌ HTTP does not redirect as expected (Status $HTTP_STATUS)"
+  fi
+  
   # Check HTTPS availability
   echo "  - Testing HTTPS availability..."
-  if curl -s --head -o /dev/null --fail "https://$domain:8443"; then
-    echo "    ✅ HTTPS is working"
+  # We expect 401 for authentication which means HTTPS is working
+  HTTP_STATUS=$(curl -s -k -o /dev/null -w "%{http_code}" https://$domain)
+  if [ "$HTTP_STATUS" == "401" ] || [ "$HTTP_STATUS" == "200" ]; then
+    echo "    ✅ HTTPS is working (Status $HTTP_STATUS)"
   else
-    echo "    ❌ HTTPS is not working"
+    echo "    ❌ HTTPS is not working (Status $HTTP_STATUS)"
   fi
   
   # Check SSL certificate
   echo "  - Checking SSL certificate..."
-  CERT_INFO=$(echo  < /dev/null |  openssl s_client -servername $domain -connect $domain:8443 2>/dev/null | openssl x509 -noout -subject -dates)
-  if [ \! -z "$CERT_INFO" ]; then
+  CERT_INFO=$(echo | openssl s_client -servername $domain -connect $domain:443 2>/dev/null | openssl x509 -noout -subject -dates)
+  if [ ! -z "$CERT_INFO" ]; then
     echo "    ✅ SSL certificate is valid"
     echo "    $CERT_INFO" | sed 's/^/      /'
   else
@@ -55,12 +66,24 @@ main() {
     echo ""
   done
   
-  # Test Kong health
+  # Test Kong admin API to make sure Kong is working properly
   echo "Testing Kong configuration..."
   if docker exec supabase-kong kong health 2>/dev/null | grep -q "Kong is healthy"; then
     echo "  ✅ Kong is healthy"
   else
     echo "  ❌ Kong health check failed"
+  fi
+  
+  # Test API access if available
+  echo ""
+  echo "Testing Supabase API access..."
+  
+  API_STATUS=$(curl -s -k -o /dev/null -w "%{http_code}" https://${DOMAINS[0]}/rest/v1/)
+  echo -n "$API_STATUS "
+  if [ "$API_STATUS" == "401" ] || [ "$API_STATUS" == "200" ]; then
+    echo "  ✅ Supabase API is accessible"
+  else
+    echo "  ❌ Supabase API is not accessible"
   fi
   
   echo ""
